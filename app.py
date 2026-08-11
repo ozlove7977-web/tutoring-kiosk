@@ -6,6 +6,44 @@ from datetime import datetime, timedelta
 import streamlit as st
 import streamlit.components.v1 as components
 
+# ============================================================
+# 화면 절전 방지 (Wake Lock)
+# ============================================================
+
+components.html(
+    """
+    <script>
+    let wakeLock = null;
+
+    async function keepScreenAwake() {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log("Wake Lock 활성화");
+
+            wakeLock.addEventListener('release', () => {
+                console.log("Wake Lock 해제됨");
+            });
+
+        } catch (err) {
+            console.log("Wake Lock 오류:", err);
+        }
+    }
+
+    keepScreenAwake();
+
+    document.addEventListener("visibilitychange", async () => {
+        if (
+            document.visibilityState === "visible" &&
+            wakeLock === null
+        ) {
+            await keepScreenAwake();
+        }
+    });
+    </script>
+    """,
+    height=0
+)
+
 
 # ============================================================
 # 기본 설정
