@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-ADMIN_PASSWORD = "142514jbhur"
+ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
 
 # ============================================================
