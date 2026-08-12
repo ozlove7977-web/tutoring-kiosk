@@ -706,63 +706,38 @@ def play_finish_sequence():
 
     components.html(
         f"""
+        <audio id="bell" preload="auto">
+            <source
+                src="data:audio/mpeg;base64,{bell}"
+                type="audio/mpeg"
+            >
+        </audio>
+
+        <audio id="voice" preload="auto">
+            <source
+                src="data:audio/mpeg;base64,{voice}"
+                type="audio/mpeg"
+            >
+        </audio>
+
         <script>
 
-        async function playSequence() {{
+            const bell =
+                document.getElementById("bell");
 
-            const bellData =
-                "data:audio/mpeg;base64,{bell}";
-
-            const voiceData =
-                "data:audio/mpeg;base64,{voice}";
-
-
-            const bell = new Audio(bellData);
-            const voice = new Audio(voiceData);
+            const voice =
+                document.getElementById("voice");
 
             bell.volume = 1.0;
             voice.volume = 1.0;
 
-            // 둘 다 미리 로딩
-            bell.load();
-            voice.load();
-
-
-            try {{
-
-                await bell.play();
-
-                bell.onended = async function() {{
-
-                    try {{
-
-                        voice.currentTime = 0;
-
-                        await voice.play();
-
-                    }} catch (error) {{
-
-                        console.log(
-                            "VOICE PLAY ERROR:",
-                            error
-                        );
-
-                    }}
-
-                }};
-
-            }} catch (error) {{
-
-                console.log(
-                    "BELL PLAY ERROR:",
-                    error
-                );
-
-            }}
-
-        }}
-
-        playSequence();
+            // 종소리와 종료 안내를 동시에 재생
+            Promise.all([
+                bell.play(),
+                voice.play()
+            ]).catch(function(error) {
+                console.log("Audio error:", error);
+            });
 
         </script>
         """,
