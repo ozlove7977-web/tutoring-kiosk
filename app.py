@@ -97,6 +97,7 @@ FINISHED_SOUND = "sounds/class_finished.mp3"
 # ============================================================
 # 세션 상태
 # ============================================================
+AUTO_RETURN_SECONDS = 16
 
 DEFAULTS = {
     "authenticated": False,
@@ -106,6 +107,7 @@ DEFAULTS = {
     "end_time": None,
     "warning_played": False,
     "finish_sound_needed": False,
+    st.session_state.complete_started_at = None,
 }
 
 for key, value in DEFAULTS.items():
