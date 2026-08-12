@@ -731,13 +731,12 @@ def play_finish_sequence():
             bell.volume = 1.0;
             voice.volume = 1.0;
 
-            // 종소리와 종료 안내를 동시에 재생
             Promise.all([
                 bell.play(),
                 voice.play()
-            ]).catch(function(error) {
+            ]).catch(function(error) {{
                 console.log("Audio error:", error);
-            });
+            }});
 
         </script>
         """,
