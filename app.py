@@ -19,10 +19,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 관리자 비밀번호
 ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "1234")
 
-# ★ 한국 시간
 KST = ZoneInfo("Asia/Seoul")
 
 # 종소리 16초 + 1초 여유
@@ -31,24 +29,28 @@ AUTO_RETURN_SECONDS = 17
 
 # ============================================================
 # 과외 설정
-# ★ 시간 바꾸고 싶으면 minutes 숫자만 변경
+# ★ 첼로/영어 시간은 여기서 숫자만 바꾸면 됨
+# ★ 수학은 매번 직접 입력
 # ============================================================
 
 LESSONS = [
     {
-        "name": "수학 과외 ",
-        "english": "SESSION 01",
-        "minutes": 120,      # 테스트용
+        "name": "첼로 과외",
+        "english": "CELLO",
+        "minutes": 60,
+        "custom": False,
     },
     {
         "name": "영어 과외",
-        "english": "SESSION 02",
+        "english": "ENGLISH",
         "minutes": 90,
+        "custom": False,
     },
     {
-        "name": "첼로 과외",
-        "english": "SESSION 03",
-        "minutes": 60,
+        "name": "수학 과외",
+        "english": "MATHEMATICS",
+        "minutes": None,
+        "custom": True,
     },
 ]
 
@@ -90,17 +92,9 @@ st.markdown(
     """
     <style>
 
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    header {
-        visibility: hidden;
-    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 
     [data-testid="stHeader"] {
         display: none !important;
@@ -157,11 +151,16 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         gap: 9px;
+
         padding: 9px 14px;
+
         border-radius: 999px;
         border: 1px solid rgba(255,255,255,0.08);
+
         background: rgba(255,255,255,0.03);
+
         color: #939bac;
+
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.16em;
@@ -170,224 +169,305 @@ st.markdown(
     .online-dot {
         width: 7px;
         height: 7px;
-        display: inline-block;
-        border-radius: 50%;
-        background: #63e9a2;
-        box-shadow: 0 0 12px rgba(99,233,162,0.75);
-    }
 
-    /* 관리자 */
+        display: inline-block;
+
+        border-radius: 50%;
+
+        background: #63e9a2;
+
+        box-shadow:
+            0 0 12px rgba(99,233,162,0.75);
+    }
 
     .admin-screen {
         min-height: 55vh;
+
         display: flex;
         flex-direction: column;
+
         justify-content: flex-end;
         align-items: center;
+
         text-align: center;
     }
 
     .admin-title {
         margin-top: 14px;
+
         font-size: clamp(38px, 5vw, 62px);
+
         font-weight: 800;
         letter-spacing: -0.045em;
     }
 
     .admin-subtitle {
         margin-top: 12px;
+
         color: #8e96a7;
+
         font-size: 15px;
     }
 
-    /* Welcome */
-
     .welcome {
         min-height: 63vh;
+
         display: flex;
         flex-direction: column;
+
         justify-content: center;
     }
 
     .welcome-title {
         margin-top: 24px;
+
         font-size: clamp(58px, 8vw, 105px);
+
         line-height: 0.95;
+
         font-weight: 800;
+
         letter-spacing: -0.06em;
     }
 
     .welcome-subtitle {
         margin-top: 22px;
+
         color: #8c94a5;
+
         font-size: 17px;
     }
 
-    /* 선택 */
-
     .select-title {
         margin-top: 35px;
+
         font-size: clamp(44px, 5vw, 68px);
+
         font-weight: 800;
+
         letter-spacing: -0.05em;
     }
 
     .select-subtitle {
         margin-top: 9px;
         margin-bottom: 28px;
+
         color: #8992a3;
+
         font-size: 15px;
     }
 
     .lesson-card {
         min-height: 165px;
+
         padding: 25px;
+
         border: 1px solid rgba(255,255,255,0.08);
+
         border-radius: 22px;
+
         background:
             linear-gradient(
                 145deg,
                 rgba(255,255,255,0.07),
                 rgba(255,255,255,0.025)
             );
-        box-shadow: 0 18px 45px rgba(0,0,0,0.16);
+
+        box-shadow:
+            0 18px 45px rgba(0,0,0,0.16);
+
         margin-bottom: 8px;
     }
 
     .lesson-en {
         color: #70798b;
+
         font-size: 10px;
+
         font-weight: 700;
+
         letter-spacing: 0.22em;
     }
 
     .lesson-name {
         margin-top: 10px;
+
         font-size: 30px;
+
         font-weight: 800;
+
         letter-spacing: -0.04em;
     }
 
     .lesson-time {
         margin-top: 23px;
+
         color: #9aa2b1;
+
         font-size: 16px;
     }
 
-    /* 타이머 */
-
     .timer-area {
         min-height: 58vh;
+
         display: flex;
         flex-direction: column;
+
         justify-content: center;
         align-items: center;
+
         text-align: center;
     }
 
     .live {
         color: #6ee8a5;
+
         font-size: 11px;
+
         font-weight: 700;
+
         letter-spacing: 0.20em;
     }
 
     .subject {
         margin-top: 27px;
+
         color: #a0a7b5;
+
         font-size: 19px;
     }
 
     .timer-number {
         margin-top: 9px;
+
         font-size: clamp(76px, 12vw, 165px);
+
         line-height: 0.95;
+
         font-weight: 800;
+
         letter-spacing: -0.065em;
+
         font-variant-numeric: tabular-nums;
     }
 
     .remaining {
         margin-top: 17px;
+
         color: #747c8d;
+
         font-size: 10px;
+
         font-weight: 700;
+
         letter-spacing: 0.30em;
     }
 
     .timer-meta {
         margin-top: 26px;
+
         color: #798191;
+
         font-size: 13px;
     }
 
     .warning {
         margin-top: 20px;
+
         padding: 9px 15px;
+
         border-radius: 999px;
+
         border: 1px solid rgba(255,204,92,0.17);
+
         background: rgba(255,204,92,0.07);
+
         color: #ffd166;
+
         font-size: 11px;
+
         font-weight: 700;
+
         letter-spacing: 0.12em;
     }
 
-    /* 완료 */
-
     .complete {
         min-height: 61vh;
+
         display: flex;
         flex-direction: column;
+
         justify-content: center;
         align-items: center;
+
         text-align: center;
     }
 
     .complete-label {
         color: #747d90;
+
         font-size: 11px;
+
         font-weight: 700;
+
         letter-spacing: 0.25em;
     }
 
     .complete-title {
         margin-top: 18px;
+
         font-size: clamp(55px, 8vw, 100px);
+
         line-height: 0.93;
+
         font-weight: 800;
+
         letter-spacing: -0.06em;
     }
 
     .complete-subtitle {
         margin-top: 22px;
+
         color: #929aaa;
+
         font-size: 17px;
     }
 
-    /* 버튼 */
-
     .stButton > button {
         width: 100%;
+
         min-height: 62px;
+
         border-radius: 17px;
-        border: 1px solid rgba(255,255,255,0.12);
+
+        border:
+            1px solid rgba(255,255,255,0.12);
+
         background:
             linear-gradient(
                 180deg,
                 rgba(255,255,255,0.10),
                 rgba(255,255,255,0.045)
             );
+
         color: white !important;
+
         font-size: 15px;
+
         font-weight: 700;
+
         transition: 0.18s ease;
-        box-shadow: 0 15px 40px rgba(0,0,0,0.18);
+
+        box-shadow:
+            0 15px 40px rgba(0,0,0,0.18);
     }
 
     .stButton > button:hover {
         transform: translateY(-2px);
-        border-color: rgba(255,255,255,0.28);
+
+        border-color:
+            rgba(255,255,255,0.28);
+
         background:
             linear-gradient(
                 180deg,
@@ -396,35 +476,52 @@ st.markdown(
             );
     }
 
-    /* 비밀번호 */
-
     div[data-baseweb="input"] {
         background: #171a22 !important;
+
         border-radius: 16px !important;
     }
 
     div[data-baseweb="input"] input {
         min-height: 60px !important;
+
         background: #171a22 !important;
+
         color: white !important;
+
         -webkit-text-fill-color: white !important;
+
         caret-color: white !important;
+
         text-align: center !important;
+
         font-size: 22px !important;
+
         font-weight: 700 !important;
-        letter-spacing: 0.18em !important;
+
         border-radius: 16px !important;
     }
 
     div[data-baseweb="input"] input::placeholder {
         color: #6f788a !important;
+
         -webkit-text-fill-color: #6f788a !important;
+
         opacity: 1 !important;
     }
 
     div[data-baseweb="input"] svg {
         color: white !important;
+
         fill: white !important;
+    }
+
+    div[data-testid="stNumberInput"] input {
+        text-align: center !important;
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
     }
 
     </style>
@@ -434,7 +531,7 @@ st.markdown(
 
 
 # ============================================================
-# HTML
+# HTML 표시
 # ============================================================
 
 def show_html(code):
@@ -442,7 +539,7 @@ def show_html(code):
 
 
 # ============================================================
-# MP3 → Base64
+# MP3 처리
 # ============================================================
 
 def encode_audio(file_path):
@@ -456,10 +553,6 @@ def encode_audio(file_path):
 
     return base64.b64encode(data).decode("utf-8")
 
-
-# ============================================================
-# 일반 알림음
-# ============================================================
 
 def play_one_sound(file_path):
 
@@ -486,7 +579,10 @@ def play_one_sound(file_path):
 
             audio.play().catch(
                 function(error) {{
-                    console.log("Audio error:", error);
+                    console.log(
+                        "Audio error:",
+                        error
+                    );
                 }}
             );
 
@@ -498,28 +594,40 @@ def play_one_sound(file_path):
 
 # ============================================================
 # 종료음
-# 종소리 + 종료 안내 동시에 시작
+# 종소리 + 안내방송 동시에
 # 안내방송은 종소리 끝날 때까지 반복
 # ============================================================
 
 def play_finish_sequence():
 
-    bell = encode_audio(SCHOOL_BELL_SOUND)
-    voice = encode_audio(FINISHED_SOUND)
+    bell = encode_audio(
+        SCHOOL_BELL_SOUND
+    )
+
+    voice = encode_audio(
+        FINISHED_SOUND
+    )
 
     if bell is None or voice is None:
         return
 
     components.html(
         f"""
-        <audio id="bell" preload="auto">
+        <audio
+            id="bell"
+            preload="auto"
+        >
             <source
                 src="data:audio/mpeg;base64,{bell}"
                 type="audio/mpeg"
             >
         </audio>
 
-        <audio id="voice" preload="auto" loop>
+        <audio
+            id="voice"
+            preload="auto"
+            loop
+        >
             <source
                 src="data:audio/mpeg;base64,{voice}"
                 type="audio/mpeg"
@@ -535,6 +643,7 @@ def play_finish_sequence():
                 document.getElementById("voice");
 
             bell.volume = 1.0;
+
             voice.volume = 1.0;
 
             Promise.all([
@@ -542,15 +651,21 @@ def play_finish_sequence():
                 voice.play()
             ]).catch(
                 function(error) {{
-                    console.log("Audio error:", error);
+                    console.log(
+                        "Audio error:",
+                        error
+                    );
                 }}
             );
 
             bell.addEventListener(
                 "ended",
                 function() {{
+
                     voice.pause();
+
                     voice.currentTime = 0;
+
                 }}
             );
 
@@ -566,18 +681,28 @@ def play_finish_sequence():
 
 def format_time(seconds):
 
-    seconds = max(0, int(seconds))
+    seconds = max(
+        0,
+        int(seconds)
+    )
 
     hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
+
+    minutes = (
+        seconds % 3600
+    ) // 60
+
     secs = seconds % 60
 
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return (
+        f"{hours:02d}:"
+        f"{minutes:02d}:"
+        f"{secs:02d}"
+    )
 
 
 # ============================================================
 # 수업 시작
-# ★ 한국시간 사용
 # ============================================================
 
 def start_lesson(lesson):
@@ -585,15 +710,20 @@ def start_lesson(lesson):
     now = datetime.now(KST)
 
     st.session_state.lesson = lesson
+
     st.session_state.start_time = now
 
     st.session_state.end_time = (
         now
-        + timedelta(minutes=lesson["minutes"])
+        + timedelta(
+            minutes=lesson["minutes"]
+        )
     )
 
     st.session_state.warning_played = False
+
     st.session_state.finish_sound_needed = False
+
     st.session_state.complete_started_at = None
 
     st.session_state.page = "timer"
@@ -602,17 +732,23 @@ def start_lesson(lesson):
 
 
 # ============================================================
-# 처음 화면으로
+# 처음 화면
 # ============================================================
 
 def return_home():
 
     st.session_state.page = "welcome"
+
     st.session_state.lesson = None
+
     st.session_state.start_time = None
+
     st.session_state.end_time = None
+
     st.session_state.warning_played = False
+
     st.session_state.finish_sound_needed = False
+
     st.session_state.complete_started_at = None
 
     st.rerun()
@@ -644,7 +780,11 @@ if not st.session_state.authenticated:
         """
     )
 
-    left, middle, right = st.columns([1.25, 1, 1.25])
+
+    left, middle, right = st.columns(
+        [1.25, 1, 1.25]
+    )
+
 
     with middle:
 
@@ -655,6 +795,7 @@ if not st.session_state.authenticated:
             label_visibility="collapsed",
         )
 
+
         if st.button(
             "ENTER  →",
             use_container_width=True,
@@ -663,6 +804,7 @@ if not st.session_state.authenticated:
             if password == ADMIN_PASSWORD:
 
                 st.session_state.authenticated = True
+
                 st.session_state.page = "welcome"
 
                 st.rerun()
@@ -672,6 +814,7 @@ if not st.session_state.authenticated:
                 st.error(
                     "비밀번호가 올바르지 않습니다."
                 )
+
 
     st.stop()
 
@@ -694,7 +837,8 @@ if st.session_state.page == "welcome":
 
                 <span class="online">
 
-                    <span class="online-dot"></span>
+                    <span class="online-dot">
+                    </span>
 
                     SYSTEM READY
 
@@ -714,7 +858,11 @@ if st.session_state.page == "welcome":
         """
     )
 
-    left, middle, right = st.columns([1, 1.2, 1])
+
+    left, middle, right = st.columns(
+        [1, 1.2, 1]
+    )
+
 
     with middle:
 
@@ -729,7 +877,7 @@ if st.session_state.page == "welcome":
 
 
 # ============================================================
-# 수업 선택
+# 과외 선택
 # ============================================================
 
 elif st.session_state.page == "select":
@@ -750,43 +898,119 @@ elif st.session_state.page == "select":
         """
     )
 
+
     columns = st.columns(3)
 
-    for index, lesson in enumerate(LESSONS):
+
+    for index, lesson in enumerate(
+        LESSONS
+    ):
 
         with columns[index]:
 
-            show_html(
-                f"""
-                <div class="lesson-card">
+            # =========================================
+            # 첼로 / 영어
+            # =========================================
 
-                    <div class="lesson-en">
-                        {lesson["english"]}
+            if not lesson["custom"]:
+
+                show_html(
+                    f"""
+                    <div class="lesson-card">
+
+                        <div class="lesson-en">
+                            {lesson["english"]}
+                        </div>
+
+                        <div class="lesson-name">
+                            {lesson["name"]}
+                        </div>
+
+                        <div class="lesson-time">
+                            {lesson["minutes"]} MIN
+                        </div>
+
                     </div>
+                    """
+                )
 
-                    <div class="lesson-name">
-                        {lesson["name"]}
+
+                if st.button(
+                    f"{lesson['name']} 시작   →",
+                    key=f"lesson_{index}",
+                    use_container_width=True,
+                ):
+
+                    start_lesson(
+                        lesson
+                    )
+
+
+            # =========================================
+            # 수학
+            # =========================================
+
+            else:
+
+                show_html(
+                    f"""
+                    <div class="lesson-card">
+
+                        <div class="lesson-en">
+                            {lesson["english"]}
+                        </div>
+
+                        <div class="lesson-name">
+                            {lesson["name"]}
+                        </div>
+
+                        <div class="lesson-time">
+                            시간 직접 설정
+                        </div>
+
                     </div>
+                    """
+                )
 
-                    <div class="lesson-time">
-                        {lesson["minutes"]} MIN
-                    </div>
 
-                </div>
-                """
-            )
+                math_minutes = st.number_input(
+                    "수학 수업 시간 (분)",
+                    min_value=1,
+                    max_value=300,
+                    value=90,
+                    step=10,
+                    key="math_minutes",
+                )
 
-            if st.button(
-                f"{lesson['name']} 시작   →",
-                key=f"lesson_{index}",
-                use_container_width=True,
-            ):
 
-                start_lesson(lesson)
+                if st.button(
+                    "수학 과외 시작   →",
+                    key="math_start",
+                    use_container_width=True,
+                ):
+
+                    math_lesson = {
+                        "name": "수학 과외",
+                        "english": "MATHEMATICS",
+                        "minutes": int(
+                            math_minutes
+                        ),
+                        "custom": True,
+                    }
+
+
+                    start_lesson(
+                        math_lesson
+                    )
+
 
     st.write("")
 
-    left, middle, right = st.columns([1.25, 0.7, 1.25])
+
+    left, middle, right = st.columns(
+        [1.25, 0.7, 1.25]
+    )
+
 
     with middle:
 
@@ -808,11 +1032,14 @@ elif st.session_state.page == "timer":
 
     lesson = st.session_state.lesson
 
-    @st.fragment(run_every="1s")
+
+    @st.fragment(
+        run_every="1s"
+    )
     def timer_fragment():
 
-        # ★★★ 중요: 한국시간 ★★★
         now = datetime.now(KST)
+
 
         remaining = (
             st.session_state.end_time
@@ -820,22 +1047,26 @@ elif st.session_state.page == "timer":
         ).total_seconds()
 
 
-        # ----------------------------------------------------
+        # ---------------------------------------------
         # 수업 종료
-        # ----------------------------------------------------
+        # ---------------------------------------------
 
         if remaining <= 0:
 
             st.session_state.finish_sound_needed = True
+
             st.session_state.complete_started_at = None
+
             st.session_state.page = "complete"
 
-            st.rerun(scope="app")
+            st.rerun(
+                scope="app"
+            )
 
 
-        # ----------------------------------------------------
-        # 10분 전 알림
-        # ----------------------------------------------------
+        # ---------------------------------------------
+        # 10분 전
+        # ---------------------------------------------
 
         if (
             remaining <= 600
@@ -843,26 +1074,31 @@ elif st.session_state.page == "timer":
             and not st.session_state.warning_played
         ):
 
-            play_one_sound(TEN_MINUTES_SOUND)
+            play_one_sound(
+                TEN_MINUTES_SOUND
+            )
 
             st.session_state.warning_played = True
 
 
-        # ----------------------------------------------------
-        # START / END 표시
-        # ----------------------------------------------------
+        # ---------------------------------------------
+        # 시간 텍스트
+        # ---------------------------------------------
 
         start_text = (
             st.session_state.start_time
             .strftime("%H:%M")
         )
 
+
         end_text = (
             st.session_state.end_time
             .strftime("%H:%M")
         )
 
+
         warning_html = ""
+
 
         if remaining <= 600:
 
@@ -912,13 +1148,14 @@ elif st.session_state.page == "timer":
         )
 
 
-        # ----------------------------------------------------
+        # ---------------------------------------------
         # 버튼
-        # ----------------------------------------------------
+        # ---------------------------------------------
 
         space1, plus, finish, space2 = st.columns(
             [1, 1, 1, 1]
         )
+
 
         with plus:
 
@@ -927,11 +1164,15 @@ elif st.session_state.page == "timer":
                 use_container_width=True,
             ):
 
-                st.session_state.end_time += timedelta(
-                    minutes=10
+                st.session_state.end_time += (
+                    timedelta(
+                        minutes=10
+                    )
                 )
 
-                st.rerun(scope="fragment")
+                st.rerun(
+                    scope="fragment"
+                )
 
 
         with finish:
@@ -942,10 +1183,14 @@ elif st.session_state.page == "timer":
             ):
 
                 st.session_state.finish_sound_needed = True
+
                 st.session_state.complete_started_at = None
+
                 st.session_state.page = "complete"
 
-                st.rerun(scope="app")
+                st.rerun(
+                    scope="app"
+                )
 
 
     timer_fragment()
@@ -957,13 +1202,17 @@ elif st.session_state.page == "timer":
 
 elif st.session_state.page == "complete":
 
-    # 완료 화면 시작 시간
-    if st.session_state.complete_started_at is None:
 
-        st.session_state.complete_started_at = time.time()
+    if (
+        st.session_state.complete_started_at
+        is None
+    ):
+
+        st.session_state.complete_started_at = (
+            time.time()
+        )
 
 
-    # 종소리 + 반복 안내방송
     if st.session_state.finish_sound_needed:
 
         play_finish_sequence()
@@ -993,10 +1242,10 @@ elif st.session_state.page == "complete":
     )
 
 
-    # 직접 처음 화면으로 가는 버튼
     left, middle, right = st.columns(
         [1.2, 1, 1.2]
     )
+
 
     with middle:
 
@@ -1008,11 +1257,9 @@ elif st.session_state.page == "complete":
             return_home()
 
 
-    # --------------------------------------------------------
-    # 17초 후 자동 복귀
-    # --------------------------------------------------------
-
-    @st.fragment(run_every="1s")
+    @st.fragment(
+        run_every="1s"
+    )
     def complete_auto_return():
 
         elapsed = (
@@ -1020,10 +1267,13 @@ elif st.session_state.page == "complete":
             - st.session_state.complete_started_at
         )
 
+
         seconds_left = max(
             0,
-            AUTO_RETURN_SECONDS - elapsed
+            AUTO_RETURN_SECONDS
+            - elapsed
         )
+
 
         st.markdown(
             f"""
@@ -1034,24 +1284,38 @@ elif st.session_state.page == "complete":
                 font-size:12px;
                 letter-spacing:.08em;
             ">
-                {max(0, int(seconds_left) + 1)}초 후
-                자동으로 처음 화면으로 돌아갑니다.
+                {max(
+                    0,
+                    int(seconds_left) + 1
+                )}초 후 자동으로 처음 화면으로 돌아갑니다.
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        if elapsed >= AUTO_RETURN_SECONDS:
+
+        if (
+            elapsed
+            >= AUTO_RETURN_SECONDS
+        ):
 
             st.session_state.page = "welcome"
+
             st.session_state.lesson = None
+
             st.session_state.start_time = None
+
             st.session_state.end_time = None
+
             st.session_state.warning_played = False
+
             st.session_state.finish_sound_needed = False
+
             st.session_state.complete_started_at = None
 
-            st.rerun(scope="app")
+            st.rerun(
+                scope="app"
+            )
 
 
     complete_auto_return()
