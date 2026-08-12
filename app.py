@@ -36,19 +36,19 @@ AUTO_RETURN_SECONDS = 17
 
 LESSONS = [
     {
-        "name": "과외 1",
+        "name": "수학 과외 ",
         "english": "SESSION 01",
-        "minutes": 1,      # 테스트용
+        "minutes": 90,      # 테스트용
     },
     {
-        "name": "과외 2",
+        "name": "영어 과외",
         "english": "SESSION 02",
         "minutes": 90,
     },
     {
-        "name": "과외 3",
+        "name": "첼로 과외",
         "english": "SESSION 03",
-        "minutes": 120,
+        "minutes": 50,
     },
 ]
 
