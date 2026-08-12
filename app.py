@@ -1,4 +1,5 @@
 import base64
+import json
 import time
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -8,10 +9,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 
-# ============================================================
-# 기본 설정
-# ============================================================
-
 st.set_page_config(
     page_title="Private Tutoring",
     page_icon="✦",
@@ -19,45 +16,17 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", "1234")
-
-# 한국 시간
 KST = ZoneInfo("Asia/Seoul")
 
-# 종소리 16초 + 1초 여유
+ADMIN_PASSWORD = str(st.secrets["ADMIN_PASSWORD"])
+
 AUTO_RETURN_SECONDS = 17
 
-
-# ============================================================
-# 과외 설정
-# 첼로 / 영어 = 고정
-# 수학 = 매번 직접 입력
-# ============================================================
-
-LESSONS = [
-    {
-        "name": "첼로 과외",
-        "english": "CELLO",
-        "minutes": 60,
-        "custom": False,
-    },
-    {
-        "name": "영어 과외",
-        "english": "ENGLISH",
-        "minutes": 90,
-        "custom": False,
-    },
-    {
-        "name": "수학 과외",
-        "english": "MATHEMATICS",
-        "minutes": None,
-        "custom": True,
-    },
-]
+SETTINGS_FILE = Path("settings.json")
 
 
 # ============================================================
-# MP3 파일
+# 사운드 파일
 # ============================================================
 
 TEN_MINUTES_SOUND = "sounds/ten_minutes.mp3"
@@ -66,34 +35,104 @@ FINISHED_SOUND = "sounds/class_finished.mp3"
 
 
 # ============================================================
-# 세션 상태
+# 기본 관리자 설정
+# ============================================================
+
+DEFAULT_SETTINGS = {
+    "cello_minutes": 60,
+    "english_minutes": 90,
+    "volume": 80,
+}
+
+
+# ============================================================
+# 설정 불러오기
+# ============================================================
+
+def load_settings():
+
+    if not SETTINGS_FILE.exists():
+        return DEFAULT_SETTINGS.copy()
+
+    try:
+
+        with open(
+            SETTINGS_FILE,
+            "r",
+            encoding="utf-8",
+        ) as f:
+
+            saved = json.load(f)
+
+        settings = DEFAULT_SETTINGS.copy()
+        settings.update(saved)
+
+        return settings
+
+    except Exception:
+
+        return DEFAULT_SETTINGS.copy()
+
+
+# ============================================================
+# 설정 저장하기
+# ============================================================
+
+def save_settings(settings):
+
+    with open(
+        SETTINGS_FILE,
+        "w",
+        encoding="utf-8",
+    ) as f:
+
+        json.dump(
+            settings,
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
+# ============================================================
+# SESSION STATE
 # ============================================================
 
 DEFAULTS = {
-    "authenticated": False,
+    "startup_authenticated": False,
+    "admin_authenticated": False,
+
     "page": "welcome",
+
     "lesson": None,
+
     "start_time": None,
     "end_time": None,
+
     "warning_played": False,
+
     "finish_sound_needed": False,
     "complete_started_at": None,
+
+    "settings": load_settings(),
 }
 
+
 for key, value in DEFAULTS.items():
+
     if key not in st.session_state:
         st.session_state[key] = value
 
 
 # ============================================================
-# 디자인
+# CSS
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* Streamlit 기본 메뉴 숨기기 */
+    /* Streamlit 기본 UI 숨기기 */
 
     #MainMenu {
         visibility: hidden;
@@ -124,7 +163,9 @@ st.markdown(
     }
 
 
-    /* 전체 배경 */
+    /* ========================================================
+       전체 배경
+       ======================================================== */
 
     .stApp {
 
@@ -154,12 +195,14 @@ st.markdown(
 
         max-width: 1200px;
 
-        padding-top: 3vh;
-        padding-bottom: 3vh;
+        padding-top: 4vh;
+        padding-bottom: 4vh;
     }
 
 
-    /* 작은 브랜드 */
+    /* ========================================================
+       공통
+       ======================================================== */
 
     .brand {
 
@@ -173,55 +216,8 @@ st.markdown(
     }
 
 
-    /* SYSTEM READY */
-
-    .online {
-
-        display: inline-flex;
-
-        align-items: center;
-
-        gap: 9px;
-
-        padding: 9px 14px;
-
-        border-radius: 999px;
-
-        border:
-            1px solid rgba(255,255,255,0.08);
-
-        background:
-            rgba(255,255,255,0.03);
-
-        color: #939bac;
-
-        font-size: 11px;
-
-        font-weight: 700;
-
-        letter-spacing: 0.16em;
-    }
-
-
-    .online-dot {
-
-        width: 7px;
-
-        height: 7px;
-
-        display: inline-block;
-
-        border-radius: 50%;
-
-        background: #63e9a2;
-
-        box-shadow:
-            0 0 12px rgba(99,233,162,0.75);
-    }
-
-
     /* ========================================================
-       관리자 로그인
+       최초 로그인 / 관리자
        ======================================================== */
 
     .admin-screen {
@@ -242,14 +238,14 @@ st.markdown(
 
     .admin-title {
 
-        margin-top: 14px;
+        margin-top: 22px;
 
         font-size:
-            clamp(38px, 5vw, 62px);
+            clamp(42px, 5vw, 68px);
 
         font-weight: 800;
 
-        letter-spacing: -0.045em;
+        letter-spacing: -0.05em;
     }
 
 
@@ -257,14 +253,32 @@ st.markdown(
 
         margin-top: 12px;
 
+        margin-bottom: 28px;
+
         color: #8e96a7;
 
         font-size: 15px;
     }
 
 
+    .setting-label {
+
+        color: #a1a8b7;
+
+        font-size: 13px;
+
+        font-weight: 700;
+
+        letter-spacing: 0.08em;
+
+        margin-top: 24px;
+
+        margin-bottom: 10px;
+    }
+
+
     /* ========================================================
-       첫 화면
+       WELCOME
        ======================================================== */
 
     .welcome {
@@ -279,9 +293,43 @@ st.markdown(
     }
 
 
+    .system-ready {
+
+        display: inline-block;
+
+        margin-top: 18px;
+
+        padding: 9px 14px;
+
+        border-radius: 100px;
+
+        border:
+            1px solid rgba(255,255,255,0.08);
+
+        background:
+            rgba(255,255,255,0.03);
+
+        color: #929bad;
+
+        font-size: 11px;
+
+        font-weight: 700;
+
+        letter-spacing: 0.15em;
+    }
+
+
+    .green-dot {
+
+        color: #61e69d;
+
+        margin-right: 8px;
+    }
+
+
     .welcome-title {
 
-        margin-top: 24px;
+        margin-top: 25px;
 
         font-size:
             clamp(58px, 8vw, 105px);
@@ -305,12 +353,12 @@ st.markdown(
 
 
     /* ========================================================
-       과외 선택
+       수업 선택
        ======================================================== */
 
     .select-title {
 
-        margin-top: 35px;
+        margin-top: 30px;
 
         font-size:
             clamp(44px, 5vw, 68px);
@@ -323,7 +371,7 @@ st.markdown(
 
     .select-subtitle {
 
-        margin-top: 9px;
+        margin-top: 10px;
 
         margin-bottom: 28px;
 
@@ -335,14 +383,14 @@ st.markdown(
 
     .lesson-card {
 
-        min-height: 165px;
+        min-height: 160px;
 
         padding: 25px;
 
+        border-radius: 22px;
+
         border:
             1px solid rgba(255,255,255,0.08);
-
-        border-radius: 22px;
 
         background:
             linear-gradient(
@@ -393,7 +441,7 @@ st.markdown(
 
 
     /* ========================================================
-       타이머
+       TIMER
        ======================================================== */
 
     .timer-area {
@@ -447,8 +495,7 @@ st.markdown(
 
         letter-spacing: -0.065em;
 
-        font-variant-numeric:
-            tabular-nums;
+        font-variant-numeric: tabular-nums;
     }
 
 
@@ -501,7 +548,7 @@ st.markdown(
 
 
     /* ========================================================
-       완료
+       COMPLETE
        ======================================================== */
 
     .complete {
@@ -558,14 +605,14 @@ st.markdown(
 
 
     /* ========================================================
-       일반 버튼
+       버튼
        ======================================================== */
 
     .stButton > button {
 
         width: 100%;
 
-        min-height: 62px;
+        min-height: 58px;
 
         border-radius: 17px;
 
@@ -594,8 +641,7 @@ st.markdown(
 
     .stButton > button:hover {
 
-        transform:
-            translateY(-2px);
+        transform: translateY(-2px);
 
         border-color:
             rgba(255,255,255,0.28);
@@ -610,84 +656,65 @@ st.markdown(
 
 
     /* ========================================================
-       관리자 비밀번호 입력
+       PASSWORD INPUT
        ======================================================== */
 
+    div[data-testid="stTextInput"]
     div[data-baseweb="input"] {
 
         background:
-            #171a22 !important;
+            #f3f4f6 !important;
 
         border-radius:
-            16px !important;
+            14px !important;
     }
 
 
-    div[data-baseweb="input"] input {
+    div[data-testid="stTextInput"]
+    input {
 
         min-height:
-            60px !important;
+            54px !important;
 
         background:
-            #171a22 !important;
+            #f3f4f6 !important;
 
         color:
-            white !important;
+            #111827 !important;
 
         -webkit-text-fill-color:
-            white !important;
+            #111827 !important;
 
         caret-color:
-            white !important;
+            #111827 !important;
 
         text-align:
             center !important;
 
         font-size:
-            22px !important;
+            20px !important;
 
         font-weight:
-            700 !important;
-
-        border-radius:
-            16px !important;
+            800 !important;
     }
 
 
-    div[data-baseweb="input"] input::placeholder {
+    div[data-testid="stTextInput"]
+    input::placeholder {
 
         color:
-            #6f788a !important;
+            #7a8190 !important;
 
         -webkit-text-fill-color:
-            #6f788a !important;
+            #7a8190 !important;
 
-        opacity:
-            1 !important;
-    }
-
-
-    div[data-baseweb="input"] svg {
-
-        color:
-            white !important;
-
-        fill:
-            white !important;
+        opacity: 1 !important;
     }
 
 
     /* ========================================================
-       ★ 수학 시간 입력칸
-       밝은 배경 + 검은 글씨
+       NUMBER INPUT
        ======================================================== */
-
-    div[data-testid="stNumberInput"] {
-
-        margin-top:
-            8px !important;
-    }
-
 
     div[data-testid="stNumberInput"]
     div[data-baseweb="input"] {
@@ -743,11 +770,19 @@ st.markdown(
     div[data-testid="stNumberInput"]
     button svg {
 
-        fill:
-            #111827 !important;
-
         color:
             #111827 !important;
+
+        fill:
+            #111827 !important;
+    }
+
+
+    /* slider */
+
+    div[data-testid="stSlider"] {
+
+        color: white !important;
     }
 
     </style>
@@ -766,7 +801,7 @@ def show_html(code):
 
 
 # ============================================================
-# MP3 파일 읽기
+# AUDIO 파일 → BASE64
 # ============================================================
 
 def encode_audio(file_path):
@@ -774,7 +809,6 @@ def encode_audio(file_path):
     path = Path(file_path)
 
     if not path.exists():
-
         return None
 
     data = path.read_bytes()
@@ -785,52 +819,44 @@ def encode_audio(file_path):
 
 
 # ============================================================
-# 일반 안내음
+# 일반 사운드 재생
 # ============================================================
 
-def play_one_sound(file_path):
+def play_sound(file_path):
 
-    audio = encode_audio(
-        file_path
-    )
+    audio = encode_audio(file_path)
 
     if audio is None:
-
         return
+
+    volume = (
+        st.session_state.settings["volume"]
+        / 100
+    )
 
     components.html(
         f"""
         <audio
-            id="single_sound"
+            id="single_audio"
             autoplay
+            preload="auto"
         >
-
             <source
                 src="data:audio/mpeg;base64,{audio}"
                 type="audio/mpeg"
             >
-
         </audio>
-
 
         <script>
 
             const audio =
-                document.getElementById(
-                    "single_sound"
-                );
+                document.getElementById("single_audio");
 
-            audio.volume = 1.0;
-
+            audio.volume = {volume};
 
             audio.play().catch(
                 function(error) {{
-
-                    console.log(
-                        "Audio error:",
-                        error
-                    );
-
+                    console.log("Audio error:", error);
                 }}
             );
 
@@ -841,10 +867,9 @@ def play_one_sound(file_path):
 
 
 # ============================================================
-# 종료음
-#
-# 학교 종소리 + 종료 안내 동시 시작
-# 종료 안내는 종소리 끝날 때까지 반복
+# 종료 사운드
+# 종소리 + 종료 안내 동시 시작
+# 종료 안내는 종소리가 끝날 때까지 반복
 # ============================================================
 
 def play_finish_sequence():
@@ -857,11 +882,13 @@ def play_finish_sequence():
         FINISHED_SOUND
     )
 
-
     if bell is None or voice is None:
-
         return
 
+    volume = (
+        st.session_state.settings["volume"]
+        / 100
+    )
 
     components.html(
         f"""
@@ -869,12 +896,10 @@ def play_finish_sequence():
             id="bell"
             preload="auto"
         >
-
             <source
                 src="data:audio/mpeg;base64,{bell}"
                 type="audio/mpeg"
             >
-
         </audio>
 
 
@@ -883,58 +908,41 @@ def play_finish_sequence():
             preload="auto"
             loop
         >
-
             <source
                 src="data:audio/mpeg;base64,{voice}"
                 type="audio/mpeg"
             >
-
         </audio>
 
 
         <script>
 
             const bell =
-                document.getElementById(
-                    "bell"
-                );
+                document.getElementById("bell");
 
             const voice =
-                document.getElementById(
-                    "voice"
-                );
+                document.getElementById("voice");
 
 
-            bell.volume = 1.0;
-
-            voice.volume = 1.0;
+            bell.volume = {volume};
+            voice.volume = {volume};
 
 
             Promise.all([
-
                 bell.play(),
-
                 voice.play()
-
             ]).catch(
                 function(error) {{
-
-                    console.log(
-                        "Audio error:",
-                        error
-                    );
-
+                    console.log("Audio error:", error);
                 }}
             );
 
 
             bell.addEventListener(
                 "ended",
-
                 function() {{
 
                     voice.pause();
-
                     voice.currentTime = 0;
 
                 }}
@@ -957,21 +965,13 @@ def format_time(seconds):
         int(seconds)
     )
 
-
-    hours = (
-        seconds // 3600
-    )
-
+    hours = seconds // 3600
 
     minutes = (
         seconds % 3600
     ) // 60
 
-
-    secs = (
-        seconds % 60
-    )
-
+    secs = seconds % 60
 
     return (
         f"{hours:02d}:"
@@ -984,50 +984,31 @@ def format_time(seconds):
 # 수업 시작
 # ============================================================
 
-def start_lesson(lesson):
+def start_lesson(name, minutes):
 
-    now = datetime.now(
-        KST
-    )
+    now = datetime.now(KST)
 
+    st.session_state.lesson = {
+        "name": name,
+        "minutes": int(minutes),
+    }
 
-    st.session_state.lesson = (
-        lesson
-    )
-
-
-    st.session_state.start_time = (
-        now
-    )
-
+    st.session_state.start_time = now
 
     st.session_state.end_time = (
         now
         + timedelta(
-            minutes=lesson["minutes"]
+            minutes=int(minutes)
         )
     )
 
+    st.session_state.warning_played = False
 
-    st.session_state.warning_played = (
-        False
-    )
+    st.session_state.finish_sound_needed = False
 
+    st.session_state.complete_started_at = None
 
-    st.session_state.finish_sound_needed = (
-        False
-    )
-
-
-    st.session_state.complete_started_at = (
-        None
-    )
-
-
-    st.session_state.page = (
-        "timer"
-    )
-
+    st.session_state.page = "timer"
 
     st.rerun()
 
@@ -1038,44 +1019,34 @@ def start_lesson(lesson):
 
 def return_home():
 
-    st.session_state.page = (
-        "welcome"
-    )
+    st.session_state.page = "welcome"
 
-    st.session_state.lesson = (
-        None
-    )
+    st.session_state.lesson = None
 
-    st.session_state.start_time = (
-        None
-    )
+    st.session_state.start_time = None
 
-    st.session_state.end_time = (
-        None
-    )
+    st.session_state.end_time = None
 
-    st.session_state.warning_played = (
-        False
-    )
+    st.session_state.warning_played = False
 
-    st.session_state.finish_sound_needed = (
-        False
-    )
+    st.session_state.finish_sound_needed = False
 
-    st.session_state.complete_started_at = (
-        None
-    )
+    st.session_state.complete_started_at = None
 
+    # 관리자 설정 인증만 해제
+    st.session_state.admin_authenticated = False
+
+    # startup_authenticated는 건드리지 않음
+    # 그래서 수업 끝날 때마다 비밀번호를 다시 묻지 않음
 
     st.rerun()
 
 
 # ============================================================
-# 관리자 로그인
+# 최초 접속 비밀번호
 # ============================================================
 
-if not st.session_state.authenticated:
-
+if not st.session_state.startup_authenticated:
 
     show_html(
         """
@@ -1090,73 +1061,55 @@ if not st.session_state.authenticated:
             </div>
 
             <div class="admin-subtitle">
-                관리자 비밀번호를 입력해 주세요.
+                키오스크를 시작하려면 관리자 비밀번호를 입력해 주세요.
             </div>
 
         </div>
         """
     )
 
-
     left, middle, right = st.columns(
-        [1.25, 1, 1.25]
+        [1.2, 1, 1.2]
     )
-
 
     with middle:
 
-
-        password = st.text_input(
-            "Password",
-
+        startup_password = st.text_input(
+            "시작 비밀번호",
             type="password",
-
             placeholder="PASSWORD",
-
             label_visibility="collapsed",
+            key="startup_password",
         )
-
 
         if st.button(
             "ENTER  →",
-
             use_container_width=True,
+            key="startup_login_button",
         ):
 
+            if startup_password == ADMIN_PASSWORD:
 
-            if password == ADMIN_PASSWORD:
+                st.session_state.startup_authenticated = True
 
-
-                st.session_state.authenticated = (
-                    True
-                )
-
-
-                st.session_state.page = (
-                    "welcome"
-                )
-
+                st.session_state.page = "welcome"
 
                 st.rerun()
 
-
             else:
-
 
                 st.error(
                     "비밀번호가 올바르지 않습니다."
                 )
 
-
     st.stop()
 
 
 # ============================================================
-# 처음 화면
+# WELCOME
 # ============================================================
 
 if st.session_state.page == "welcome":
-
 
     show_html(
         """
@@ -1166,17 +1119,16 @@ if st.session_state.page == "welcome":
                 PRIVATE TUTORING
             </div>
 
-            <div style="margin-top:18px;">
+            <div>
+                <span class="system-ready">
 
-                <span class="online">
-
-                    <span class="online-dot">
+                    <span class="green-dot">
+                        ●
                     </span>
 
                     SYSTEM READY
 
                 </span>
-
             </div>
 
             <div class="welcome-title">
@@ -1191,36 +1143,29 @@ if st.session_state.page == "welcome":
         """
     )
 
-
     left, middle, right = st.columns(
         [1, 1.2, 1]
     )
 
-
     with middle:
 
-
         if st.button(
-            "과외 시작하기   →",
-
+            "과외 시작하기  →",
             use_container_width=True,
         ):
 
-
-            st.session_state.page = (
-                "select"
-            )
-
+            st.session_state.page = "select"
 
             st.rerun()
 
 
 # ============================================================
-# 과외 선택
+# SELECT
 # ============================================================
 
 elif st.session_state.page == "select":
 
+    settings = st.session_state.settings
 
     show_html(
         """
@@ -1233,182 +1178,459 @@ elif st.session_state.page == "select":
         </div>
 
         <div class="select-subtitle">
-            시작할 수업을 터치해 주세요.
+            시작할 수업을 선택해 주세요.
         </div>
         """
     )
 
-
-    columns = st.columns(
-        3
-    )
+    c1, c2, c3 = st.columns(3)
 
 
-    for index, lesson in enumerate(
-        LESSONS
-    ):
+    # ========================================================
+    # 첼로
+    # ========================================================
+
+    with c1:
+
+        show_html(
+            f"""
+            <div class="lesson-card">
+
+                <div class="lesson-en">
+                    CELLO
+                </div>
+
+                <div class="lesson-name">
+                    첼로 과외
+                </div>
+
+                <div class="lesson-time">
+                    {settings["cello_minutes"]} MIN
+                </div>
+
+            </div>
+            """
+        )
+
+        if st.button(
+            "첼로 과외 시작  →",
+            use_container_width=True,
+            key="start_cello",
+        ):
+
+            start_lesson(
+                "첼로 과외",
+                settings["cello_minutes"],
+            )
 
 
-        with columns[index]:
+    # ========================================================
+    # 영어
+    # ========================================================
+
+    with c2:
+
+        show_html(
+            f"""
+            <div class="lesson-card">
+
+                <div class="lesson-en">
+                    ENGLISH
+                </div>
+
+                <div class="lesson-name">
+                    영어 과외
+                </div>
+
+                <div class="lesson-time">
+                    {settings["english_minutes"]} MIN
+                </div>
+
+            </div>
+            """
+        )
+
+        if st.button(
+            "영어 과외 시작  →",
+            use_container_width=True,
+            key="start_english",
+        ):
+
+            start_lesson(
+                "영어 과외",
+                settings["english_minutes"],
+            )
 
 
-            # =================================================
-            # 첼로 / 영어
-            # =================================================
+    # ========================================================
+    # 수학
+    # ========================================================
 
-            if not lesson["custom"]:
+    with c3:
 
+        show_html(
+            """
+            <div class="lesson-card">
 
-                show_html(
-                    f"""
-                    <div class="lesson-card">
+                <div class="lesson-en">
+                    MATHEMATICS
+                </div>
 
-                        <div class="lesson-en">
-                            {lesson["english"]}
-                        </div>
+                <div class="lesson-name">
+                    수학 과외
+                </div>
 
-                        <div class="lesson-name">
-                            {lesson["name"]}
-                        </div>
+                <div class="lesson-time">
+                    시간 직접 설정
+                </div>
 
-                        <div class="lesson-time">
-                            {lesson["minutes"]} MIN
-                        </div>
+            </div>
+            """
+        )
 
-                    </div>
-                    """
-                )
+        math_minutes = st.number_input(
+            "수학 수업 시간",
+            min_value=1,
+            max_value=300,
+            value=90,
+            step=10,
+            key="math_minutes",
+            label_visibility="collapsed",
+        )
 
+        if st.button(
+            "수학 과외 시작  →",
+            use_container_width=True,
+            key="start_math",
+        ):
 
-                if st.button(
-                    f"{lesson['name']} 시작   →",
-
-                    key=f"lesson_{index}",
-
-                    use_container_width=True,
-                ):
-
-
-                    start_lesson(
-                        lesson
-                    )
-
-
-            # =================================================
-            # 수학
-            # =================================================
-
-            else:
-
-
-                show_html(
-                    f"""
-                    <div class="lesson-card">
-
-                        <div class="lesson-en">
-                            {lesson["english"]}
-                        </div>
-
-                        <div class="lesson-name">
-                            {lesson["name"]}
-                        </div>
-
-                        <div class="lesson-time">
-                            시간 직접 설정
-                        </div>
-
-                    </div>
-                    """
-                )
-
-
-                # ★ 라벨은 숨김
-                # ★ 숫자는 검은색으로 표시
-
-                math_minutes = st.number_input(
-
-                    "수학 수업 시간 (분)",
-
-                    min_value=1,
-
-                    max_value=300,
-
-                    value=90,
-
-                    step=10,
-
-                    key="math_minutes",
-
-                    label_visibility="collapsed",
-                )
-
-
-                if st.button(
-                    "수학 과외 시작   →",
-
-                    key="math_start",
-
-                    use_container_width=True,
-                ):
-
-
-                    math_lesson = {
-
-                        "name":
-                            "수학 과외",
-
-                        "english":
-                            "MATHEMATICS",
-
-                        "minutes":
-                            int(math_minutes),
-
-                        "custom":
-                            True,
-                    }
-
-
-                    start_lesson(
-                        math_lesson
-                    )
+            start_lesson(
+                "수학 과외",
+                int(math_minutes),
+            )
 
 
     st.write("")
+    st.write("")
 
-
-    left, middle, right = st.columns(
-        [1.25, 0.7, 1.25]
+    blank, admin_col, home_col = st.columns(
+        [2, 1, 1]
     )
 
+    with admin_col:
 
-    with middle:
+        if st.button(
+            "⚙ 관리자 설정",
+            use_container_width=True,
+            key="open_admin",
+        ):
 
+            # 들어갈 때마다 인증 초기화
+            st.session_state.admin_authenticated = False
+
+            st.session_state.page = "admin_login"
+
+            st.rerun()
+
+
+    with home_col:
 
         if st.button(
             "← 처음으로",
-
             use_container_width=True,
+            key="select_home",
         ):
 
+            return_home()
 
-            st.session_state.page = (
-                "welcome"
-            )
 
+# ============================================================
+# ADMIN LOGIN
+# ============================================================
+
+elif st.session_state.page == "admin_login":
+
+    show_html(
+        """
+        <div class="admin-screen">
+
+            <div class="brand">
+                PRIVATE TUTORING SYSTEM
+            </div>
+
+            <div class="admin-title">
+                ADMIN SETTINGS
+            </div>
+
+            <div class="admin-subtitle">
+                설정을 변경하려면 관리자 비밀번호를 입력해 주세요.
+            </div>
+
+        </div>
+        """
+    )
+
+    left, middle, right = st.columns(
+        [1.2, 1, 1.2]
+    )
+
+    with middle:
+
+        admin_password = st.text_input(
+            "관리자 비밀번호",
+            type="password",
+            placeholder="PASSWORD",
+            label_visibility="collapsed",
+            key="admin_password",
+        )
+
+        if st.button(
+            "ENTER  →",
+            use_container_width=True,
+            key="admin_login_button",
+        ):
+
+            if admin_password == ADMIN_PASSWORD:
+
+                st.session_state.admin_authenticated = True
+
+                st.session_state.page = "admin_settings"
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "비밀번호가 올바르지 않습니다."
+                )
+
+
+        if st.button(
+            "← 과외 선택으로",
+            use_container_width=True,
+            key="admin_login_back",
+        ):
+
+            st.session_state.admin_authenticated = False
+
+            st.session_state.page = "select"
 
             st.rerun()
 
 
 # ============================================================
-# 타이머
+# ADMIN SETTINGS
+# ============================================================
+
+elif st.session_state.page == "admin_settings":
+
+    # URL/상태 꼬여서 직접 들어오는 것 방지
+
+    if not st.session_state.admin_authenticated:
+
+        st.session_state.page = "admin_login"
+
+        st.rerun()
+
+
+    settings = st.session_state.settings
+
+
+    show_html(
+        """
+        <div class="brand">
+            PRIVATE TUTORING SYSTEM
+        </div>
+
+        <div class="admin-title">
+            ADMIN SETTINGS
+        </div>
+
+        <div class="admin-subtitle">
+            과외 시간과 알림 소리 크기를 설정합니다.
+        </div>
+        """
+    )
+
+
+    left, middle, right = st.columns(
+        [1, 1.4, 1]
+    )
+
+
+    with middle:
+
+        # ====================================================
+        # 첼로
+        # ====================================================
+
+        show_html(
+            """
+            <div class="setting-label">
+                CELLO · 첼로 과외 시간
+            </div>
+            """
+        )
+
+        cello_minutes = st.number_input(
+            "첼로 과외 시간",
+            min_value=1,
+            max_value=300,
+            value=int(
+                settings["cello_minutes"]
+            ),
+            step=5,
+            key="admin_cello_minutes",
+            label_visibility="collapsed",
+        )
+
+
+        # ====================================================
+        # 영어
+        # ====================================================
+
+        show_html(
+            """
+            <div class="setting-label">
+                ENGLISH · 영어 과외 시간
+            </div>
+            """
+        )
+
+        english_minutes = st.number_input(
+            "영어 과외 시간",
+            min_value=1,
+            max_value=300,
+            value=int(
+                settings["english_minutes"]
+            ),
+            step=5,
+            key="admin_english_minutes",
+            label_visibility="collapsed",
+        )
+
+
+        # ====================================================
+        # 볼륨
+        # ====================================================
+
+        show_html(
+            """
+            <div class="setting-label">
+                MASTER VOLUME · 알림 소리 크기
+            </div>
+            """
+        )
+
+        volume = st.slider(
+            "알림 소리 크기",
+            min_value=0,
+            max_value=100,
+            value=int(
+                settings["volume"]
+            ),
+            step=5,
+            key="admin_volume",
+            label_visibility="collapsed",
+        )
+
+        st.caption(
+            f"현재 설정: {volume}%"
+        )
+
+
+        # ====================================================
+        # 테스트 사운드
+        # ====================================================
+
+        if st.button(
+            "🔊 소리 테스트",
+            use_container_width=True,
+            key="test_sound",
+        ):
+
+            # 테스트할 때 현재 슬라이더 값 사용
+            old_volume = (
+                st.session_state.settings["volume"]
+            )
+
+            st.session_state.settings["volume"] = (
+                int(volume)
+            )
+
+            play_sound(
+                TEN_MINUTES_SOUND
+            )
+
+            st.session_state.settings["volume"] = (
+                old_volume
+            )
+
+
+        st.write("")
+
+
+        # ====================================================
+        # 저장
+        # ====================================================
+
+        if st.button(
+            "✓ 설정 저장하고 나오기",
+            use_container_width=True,
+            key="save_admin_settings",
+        ):
+
+            new_settings = {
+                "cello_minutes":
+                    int(cello_minutes),
+
+                "english_minutes":
+                    int(english_minutes),
+
+                "volume":
+                    int(volume),
+            }
+
+            save_settings(
+                new_settings
+            )
+
+            st.session_state.settings = (
+                new_settings
+            )
+
+            # 관리자 화면에서 나오는 순간 인증 해제
+            st.session_state.admin_authenticated = False
+
+            st.session_state.page = "select"
+
+            st.rerun()
+
+
+        # ====================================================
+        # 취소
+        # ====================================================
+
+        if st.button(
+            "취소하고 나오기",
+            use_container_width=True,
+            key="cancel_admin_settings",
+        ):
+
+            st.session_state.admin_authenticated = False
+
+            st.session_state.page = "select"
+
+            st.rerun()
+
+
+# ============================================================
+# TIMER
 # ============================================================
 
 elif st.session_state.page == "timer":
 
-
-    lesson = (
-        st.session_state.lesson
-    )
+    lesson = st.session_state.lesson
 
 
     @st.fragment(
@@ -1416,98 +1638,66 @@ elif st.session_state.page == "timer":
     )
     def timer_fragment():
 
-
-        # 한국 시간
-
-        now = datetime.now(
-            KST
-        )
-
+        now = datetime.now(KST)
 
         remaining = (
-
             st.session_state.end_time
-
             - now
-
         ).total_seconds()
 
 
-        # =====================================================
-        # 시간 종료
-        # =====================================================
+        # ====================================================
+        # 수업 종료
+        # ====================================================
 
         if remaining <= 0:
 
+            st.session_state.finish_sound_needed = True
 
-            st.session_state.finish_sound_needed = (
-                True
-            )
+            st.session_state.complete_started_at = None
 
-
-            st.session_state.complete_started_at = (
-                None
-            )
-
-
-            st.session_state.page = (
-                "complete"
-            )
-
+            st.session_state.page = "complete"
 
             st.rerun(
                 scope="app"
             )
 
 
-        # =====================================================
-        # 10분 전 알림
-        # =====================================================
+        # ====================================================
+        # 10분 전 안내
+        # ====================================================
 
         if (
             remaining <= 600
-
             and remaining > 0
-
             and not st.session_state.warning_played
         ):
 
-
-            play_one_sound(
+            play_sound(
                 TEN_MINUTES_SOUND
             )
 
-
-            st.session_state.warning_played = (
-                True
-            )
+            st.session_state.warning_played = True
 
 
-        # =====================================================
-        # 시작 / 종료 시간
-        # =====================================================
+        # ====================================================
+        # 시간 표시
+        # ====================================================
 
         start_text = (
-
             st.session_state.start_time
-
             .strftime("%H:%M")
         )
 
-
         end_text = (
-
             st.session_state.end_time
-
             .strftime("%H:%M")
         )
 
 
         warning_html = ""
 
-
         if remaining <= 600:
-
 
             warning_html = """
             <div class="warning">
@@ -1555,26 +1745,22 @@ elif st.session_state.page == "timer":
         )
 
 
-        # =====================================================
-        # 타이머 버튼
-        # =====================================================
-
-        space1, plus, finish, space2 = (
-            st.columns(
-                [1, 1, 1, 1]
-            )
+        left, add_col, finish_col, right = st.columns(
+            [1, 1, 1, 1]
         )
 
 
-        with plus:
+        # ====================================================
+        # 10분 추가
+        # ====================================================
 
+        with add_col:
 
             if st.button(
                 "+ 10 MIN",
-
                 use_container_width=True,
+                key="add_10_minutes",
             ):
-
 
                 st.session_state.end_time += (
                     timedelta(
@@ -1582,36 +1768,28 @@ elif st.session_state.page == "timer":
                     )
                 )
 
-
                 st.rerun(
                     scope="fragment"
                 )
 
 
-        with finish:
+        # ====================================================
+        # 강제 종료
+        # ====================================================
 
+        with finish_col:
 
             if st.button(
                 "수업 종료",
-
                 use_container_width=True,
+                key="finish_lesson",
             ):
 
+                st.session_state.finish_sound_needed = True
 
-                st.session_state.finish_sound_needed = (
-                    True
-                )
+                st.session_state.complete_started_at = None
 
-
-                st.session_state.complete_started_at = (
-                    None
-                )
-
-
-                st.session_state.page = (
-                    "complete"
-                )
-
+                st.session_state.page = "complete"
 
                 st.rerun(
                     scope="app"
@@ -1622,36 +1800,27 @@ elif st.session_state.page == "timer":
 
 
 # ============================================================
-# 수업 완료
+# COMPLETE
 # ============================================================
 
 elif st.session_state.page == "complete":
 
+    # 완료 화면 최초 진입 시간
 
-    # 최초 완료 시간 저장
-
-    if (
-        st.session_state.complete_started_at
-        is None
-    ):
-
+    if st.session_state.complete_started_at is None:
 
         st.session_state.complete_started_at = (
             time.time()
         )
 
 
-    # 종료음 재생
+    # 종료 사운드 최초 1회 시작
 
     if st.session_state.finish_sound_needed:
 
-
         play_finish_sequence()
 
-
-        st.session_state.finish_sound_needed = (
-            False
-        )
+        st.session_state.finish_sound_needed = False
 
 
     show_html(
@@ -1676,24 +1845,22 @@ elif st.session_state.page == "complete":
     )
 
 
-    # ========================================================
-    # 직접 처음 화면으로
-    # ========================================================
-
     left, middle, right = st.columns(
         [1.2, 1, 1.2]
     )
 
 
-    with middle:
+    # ========================================================
+    # 직접 처음 화면으로
+    # ========================================================
 
+    with middle:
 
         if st.button(
             "처음 화면으로",
-
             use_container_width=True,
+            key="complete_home",
         ):
-
 
             return_home()
 
@@ -1705,92 +1872,59 @@ elif st.session_state.page == "complete":
     @st.fragment(
         run_every="1s"
     )
-    def complete_auto_return():
-
+    def auto_return():
 
         elapsed = (
-
             time.time()
-
             - st.session_state.complete_started_at
         )
 
-
         seconds_left = max(
-
             0,
-
-            AUTO_RETURN_SECONDS
-            - elapsed
+            AUTO_RETURN_SECONDS - elapsed
         )
-
 
         st.markdown(
             f"""
             <div style="
                 text-align:center;
-                margin-top:18px;
                 color:#747d90;
                 font-size:12px;
-                letter-spacing:.08em;
+                margin-top:18px;
+                letter-spacing:.05em;
             ">
-
-                {max(
-                    0,
-                    int(seconds_left) + 1
-                )}초 후 자동으로 처음 화면으로 돌아갑니다.
-
+                {max(0, int(seconds_left) + 1)}초 후
+                자동으로 처음 화면으로 돌아갑니다.
             </div>
             """,
-
             unsafe_allow_html=True,
         )
 
 
-        if (
-            elapsed
-            >= AUTO_RETURN_SECONDS
-        ):
+        if elapsed >= AUTO_RETURN_SECONDS:
 
+            st.session_state.page = "welcome"
 
-            st.session_state.page = (
-                "welcome"
-            )
+            st.session_state.lesson = None
 
+            st.session_state.start_time = None
 
-            st.session_state.lesson = (
-                None
-            )
+            st.session_state.end_time = None
 
+            st.session_state.warning_played = False
 
-            st.session_state.start_time = (
-                None
-            )
+            st.session_state.finish_sound_needed = False
 
+            st.session_state.complete_started_at = None
 
-            st.session_state.end_time = (
-                None
-            )
+            st.session_state.admin_authenticated = False
 
-
-            st.session_state.warning_played = (
-                False
-            )
-
-
-            st.session_state.finish_sound_needed = (
-                False
-            )
-
-
-            st.session_state.complete_started_at = (
-                None
-            )
-
+            # startup_authenticated는 True 유지
+            # 따라서 수업 끝난 뒤에는 로그인 화면으로 가지 않음
 
             st.rerun(
                 scope="app"
             )
 
 
-    complete_auto_return()
+    auto_return()
