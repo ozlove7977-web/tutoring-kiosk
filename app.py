@@ -38,7 +38,7 @@ LESSONS = [
     {
         "name": "수학 과외 ",
         "english": "SESSION 01",
-        "minutes": 90,      # 테스트용
+        "minutes": 120,      # 테스트용
     },
     {
         "name": "영어 과외",
@@ -48,7 +48,7 @@ LESSONS = [
     {
         "name": "첼로 과외",
         "english": "SESSION 03",
-        "minutes": 50,
+        "minutes": 60,
     },
 ]
 
